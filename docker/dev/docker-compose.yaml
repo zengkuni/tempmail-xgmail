@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# tempmail — DEVELOPMENT. Go backend + Postgres + Valkey only.
+# Frontend dev server runs on the host: cd frontend && npm run dev (:5173).
+#
+#   docker compose --env-file .env -f docker/dev/docker-compose.yaml up -d
+#
+#   Backend API + SMTP:     http://localhost:5001  /  :2525
+#   Frontend (manual vite): http://localhost:5173
+#
+# NOTE: compose reads env vars from ./docker/dev/.env by default; pass
+# --env-file .env (repo root) to use the project .env. TEMPMAIL_POSTGRES_URL
+# / TEMPMAIL_REDIS_URL fall back to the in-stack services when unset.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── backend: Go API (:5001) + SMTP (:2525), source-mounted ──
+  backend:
+    image: golang:1.26rc1-alpine
+    container_name: tempmail-backend-dev
+    working_dir: /app
+    # GOTOOLCHAIN=auto lets it satisfy go.mod's 1.26.0 from the rc1 base.
+    command: sh -c "export GOTOOLCHAIN=auto && go mod download && go run ./cmd/server"
+    ports:
+      - "5001:5001"
+      - "2525:2525"
+    environment:
+      TEMPMAIL_PORT: "5001"
+      TEMPMAIL_SMTP_PORT: "2525"
+      TEMPMAIL_POSTGRES_URL: postgres://tempmail:tempmail@postgres:5432/tempmail?sslmode=disable
+      TEMPMAIL_REDIS_URL: ${TEMPMAIL_REDIS_URL:-redis://valkey:6379/0}
+      TEMPMAIL_APP_ENV: development
+      TEMPMAIL_PUBLIC_API_KEY: ${TEMPMAIL_PUBLIC_API_KEY:-public-dev-key}
+      TEMPMAIL_DEFAULT_DOMAIN: ${TEMPMAIL_DEFAULT_DOMAIN:-mail.tempmail.dev}
+      TEMPMAIL_MX_TARGET: ${TEMPMAIL_MX_TARGET:-email.xgmail.bond}
+      TEMPMAIL_SMTP_GREETING: ${TEMPMAIL_SMTP_GREETING:-mail.xgmail.bond}
+      TEMPMAIL_REDIS_PREFIX: ${TEMPMAIL_REDIS_PREFIX:-tempmail-xgmail:}
+      TEMPMAIL_FRONTEND_URL: ${TEMPMAIL_FRONTEND_URL:-http://localhost:5173}
+      TEMPMAIL_MAX_INBOX_EXPIRATION: ${TEMPMAIL_MAX_INBOX_EXPIRATION:-24h}
+      TEMPMAIL_DNS_RESOLVERS: ${TEMPMAIL_DNS_RESOLVERS:-1.1.1.1:53,8.8.8.8:53,9.9.9.9:53}
+      TEMPMAIL_DNS_LOOKUP_TIMEOUT: ${TEMPMAIL_DNS_LOOKUP_TIMEOUT:-3s}
+      TEMPMAIL_DNS_RESOLVERS_URL: ${TEMPMAIL_DNS_RESOLVERS_URL:-https://raw.githubusercontent.com/proabiral/Fresh-Resolvers/refs/heads/master/resolvers.txt}
+      TEMPMAIL_DOMAIN_MX_GRACE: ${TEMPMAIL_DOMAIN_MX_GRACE:-10m}
+      TEMPMAIL_MX_SWEEP_INTERVAL: ${TEMPMAIL_MX_SWEEP_INTERVAL:-1m}
+    volumes:
+      - ../../backend:/app
+      - go-pkg-cache:/go/pkg
+    depends_on:
+      - postgres
+      - valkey
+
+  # ── PostgreSQL (schema auto-created at boot by the backend) ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: tempmail-postgres
+    restart: always
+    # No host port: use `docker exec -it tempmail-postgres psql -U tempmail`
+    # to avoid clashing with a locally installed Postgres.
+    environment:
+      POSTGRES_USER: tempmail
+      POSTGRES_PASSWORD: tempmail
+      POSTGRES_DB: tempmail
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # ── Valkey (Redis-compatible; go-redis/asynq client unchanged) ──
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: tempmail-valkey
+    restart: always
+    # No host port: backend reaches Valkey in-stack only.
+    volumes:
+      - valkey-data:/data
+
+volumes:
+  postgres-data:
+    name: postgres-data
+  valkey-data:
+    name: valkey-data
+  go-pkg-cache:
+
+networks:
+  default:
+    name: tempmail-server
+    driver: bridge
