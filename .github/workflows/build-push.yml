@@ -1,9 +1,16 @@
 name: build-push
 
-# Build dev + prod images and push to GitHub Container Registry.
-# Pushes on every main-branch commit and on tags v*.
+# Build the PROD image (frontend + backend + SMTP in one) and push it to
+# GitHub Container Registry. Dev never hits the registry: the dev stack runs
+# the backend from source (docker/dev/docker-compose.yaml, no image build).
+#
+# Triggers: push on main, push of tags v*, or manual dispatch.
+# On a tag push v1.0.0 the workflow auto-bumps to v1.0.1 (annotated tag on the
+# same commit) — pushed with the default GITHUB_TOKEN, which does NOT
+# re-trigger workflows, so the bump cannot loop. Images pushed:
+#   tag push : v1.0.1, sha-<commit>, latest   (multi-arch amd64+arm64)
+#   main push: prod, sha-<commit>, latest
 # Package visibility is managed at github.com/<owner>/<repo>/packages.
-
 on:
   push:
     branches: [main]
@@ -17,17 +24,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: write
-    # Tag pushes made with the default GITHUB_TOKEN do NOT re-trigger
-    # workflows, so the auto-bumped tag cannot loop.
-    strategy:
-      matrix:
-        include:
-          - name: dev
-            dockerfile: docker/dev/Dockerfile
-          - name: prod
-            dockerfile: docker/prod/Dockerfile
+      contents: write # create/push the auto-bumped tag
+      packages: write # push to GHCR
     steps:
       - uses: actions/checkout@v4
 
@@ -38,25 +36,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Auto version-bump on v* tag pushes: compute `next` in BOTH matrix jobs
-      # (needed for the tag list), but create+push the tag only once — from the
-      # prod job — so the dev job cannot fail with "already exists". The push
-      # uses the default GITHUB_TOKEN → does not re-trigger this workflow.
-      - name: Compute next version (push tag from prod only)
+      # Auto version-bump on v* tag pushes: create + push v1.0.1 on the same
+      # commit the tag points at.
+      - name: Compute next version (push tag)
         id: version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           ref="${{ github.ref_name }}"
           base="${ref#v}"
           IFS=. read -r major minor patch <<< "$base"
           next="v${major}.${minor}.$((patch + 1))"
+          git tag -a "$next" -m "auto-bump from $ref" "${{ github.sha }}"
+          git push origin "$next"
           echo "next=$next" >> "$GITHUB_OUTPUT"
-          if [ "${{ matrix.name }}" = "prod" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -a "$next" -m "auto-bump from $ref" "${{ github.sha }}"
-            git push origin "$next"
-          fi
 
       - name: Compute image tags
         id: meta
@@ -64,14 +58,9 @@ jobs:
           image=ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/tempmail-xgmail
           tags="$image:sha-${{ github.sha }}"
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            if [ "${{ matrix.name }}" = "prod" ]; then
-              tags="$image:${{ steps.version.outputs.next }},$tags,$image:latest"
-            fi
+            tags="$image:${{ steps.version.outputs.next }},$tags,$image:latest"
           else
-            tags="$image:${{ matrix.name }},$tags"
-            if [ "${{ matrix.name }}" = "prod" ]; then
-              tags="$tags,$image:latest"
-            fi
+            tags="$image:prod,$tags,$image:latest"
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
@@ -81,9 +70,9 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: docker/prod/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+          cache-from: type=gha,scope=prod
+          cache-to: type=gha,scope=prod,mode=max

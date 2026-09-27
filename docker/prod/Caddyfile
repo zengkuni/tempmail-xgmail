@@ -1,0 +1,15 @@
+{
+	# ACME contact (has a safe default → parses fine when unset).
+	email {$TEMPMAIL_ACME_EMAIL:admin@example.com}
+}
+
+# Site address: real domain (prod) or plain HTTP localhost (fresh box, no DNS).
+# The `tls` directive is ignored on an http:// site, so no ACME attempt and no
+# Cloudflare token needed until TEMPMAIL_SITE_DOMAIN is a real domain.
+{$TEMPMAIL_SITE_DOMAIN:http://localhost} {
+	tls {
+		dns cloudflare {$TEMPMAIL_CLOUDFLARE_API_TOKEN:unset}
+	}
+	encode zstd gzip
+	reverse_proxy app:8080
+}

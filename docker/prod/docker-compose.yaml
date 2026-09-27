@@ -5,17 +5,44 @@
 #   (env keys live in the repo-root .env; compose defaults otherwise)
 #
 # The `app` container serves the SPA, REST API, Socket.IO realtime, and the
-# SMTP receiver. Brand/MX are runtime env (see app.environment) so one image
-# can be rebranded without a rebuild.
+# SMTP receiver. `caddy` terminates TLS (Let's Encrypt via Cloudflare DNS-01)
+# and reverse-proxies to the app; Cloudflare (orange-cloud proxy) fronts 80/443.
+# Brand/MX are runtime env (see app.environment) so one image can be rebranded
+# without a rebuild. SMTP (:25) bypasses Caddy/Cloudflare — MX points straight
+# at the origin IP (DNS-only record email.<domain>), never a proxied record.
 # WARNING: all env keys are TEMPMAIL_-prefixed (root .env). Images built
 # before the rename read the old names — after building + pushing the prod
 # image manually (docker build -f docker/prod/Dockerfile + docker push),
 # run `docker compose -f docker/prod/docker-compose.yaml pull && \
-# docker compose -f docker/prod/docker-compose.yaml up -d`; an old
-# binary silently falls back to defaults (port 5001, postgres localhost).
+# docker compose -f docker/prod/docker-compose.yaml up -d`; an old binary
+# silently falls back to defaults (port 5001, postgres localhost).
+# First prod up also builds the local caddy image (Cloudflare DNS module).
 # For local development with hot-reload, use docker/dev/docker-compose.yaml.
 # ─────────────────────────────────────────────────────────────────────────────
 services:
+  # ── caddy: TLS terminator + reverse proxy (Cloudflare DNS proxy in front) ──
+  caddy:
+    build:
+      context: ../..
+      dockerfile: docker/prod/caddy.Dockerfile
+    container_name: tempmail-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80" # HTTP (ACME HTTP-01 + redirect)
+      - "443:443" # HTTPS
+    environment:
+      # Site identity + ACME (resolved by Caddy itself from .env placeholders).
+      TEMPMAIL_SITE_DOMAIN: ${TEMPMAIL_SITE_DOMAIN:-localhost}
+      TEMPMAIL_ACME_EMAIL: ${TEMPMAIL_ACME_EMAIL:-admin@example.com}
+      # Cloudflare API token with Zone→DNS→Edit on the site's zone.
+      TEMPMAIL_CLOUDFLARE_API_TOKEN: ${TEMPMAIL_CLOUDFLARE_API_TOKEN:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # certificates (ACME DNS-01, persistent)
+      - caddy-config:/config
+    depends_on:
+      - app
+
   # ── app: single image — SPA + Go API (:8080) + SMTP (:2525) ──
   app:
     # build:
@@ -24,9 +51,10 @@ services:
     image: ${TEMPMAIL_APP_IMAGE:-ghcr.io/zengkuni/tempmail-xgmail:latest}
     container_name: tempmail-app
     restart: unless-stopped
+    # 8080 is intentionally NOT published: Caddy is the only public HTTP
+    # entry (avoids bypassing TLS/Cloudflare). Caddy reaches app:8080 in-stack.
     ports:
-      - "8080:8080" # HTTP: SPA + /api + /socket.io
-      - "25:2525" # SMTP intake (host :25 → app)
+      - "25:2525" # SMTP intake (host :25 → app; CF proxy cannot carry SMTP)
       - "2525:2525" # SMTP intake (direct, optional)
     environment:
       TEMPMAIL_PORT: ${TEMPMAIL_PORT:-8080}
@@ -45,6 +73,8 @@ services:
       TEMPMAIL_SMTP_GREETING: ${TEMPMAIL_SMTP_GREETING:-mail.xgmail.bond}
       TEMPMAIL_REDIS_PREFIX: ${TEMPMAIL_REDIS_PREFIX:-tempmail-xgmail:}
       TEMPMAIL_FRONTEND_URL: ${TEMPMAIL_FRONTEND_URL:-http://localhost:8080}
+      # Public origin served through Caddy/Cloudflare (used in links, CORS).
+      TEMPMAIL_SITE_DOMAIN: ${TEMPMAIL_SITE_DOMAIN:-localhost}
       TEMPMAIL_MAX_INBOX_EXPIRATION: ${TEMPMAIL_MAX_INBOX_EXPIRATION:-24h}
       TEMPMAIL_RATE_LIMIT_API_MAX: ${TEMPMAIL_RATE_LIMIT_API_MAX:-300}
       TEMPMAIL_RATE_LIMIT_API_WINDOW_MINUTES: ${TEMPMAIL_RATE_LIMIT_API_WINDOW_MINUTES:-15}
@@ -93,6 +123,10 @@ volumes:
     name: postgres-data
   valkey-data:
     name: valkey-data
+  caddy-data:
+    name: caddy-data
+  caddy-config:
+    name: caddy-config
 
 networks:
   default:

@@ -10,6 +10,10 @@
 # NOTE: compose reads env vars from ./docker/dev/.env by default; pass
 # --env-file .env (repo root) to use the project .env. TEMPMAIL_POSTGRES_URL
 # / TEMPMAIL_REDIS_URL fall back to the in-stack services when unset.
+# This dev stack NEVER builds or pulls from GHCR: the backend runs from
+# source (golang image + volume mount), infra are plain postgres/valkey
+# images. GHCR image builds/pushes belong to CI only
+# (.github/workflows/build-push.yml) and are used by docker/prod.
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:

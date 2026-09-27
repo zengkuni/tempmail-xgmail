@@ -66,11 +66,12 @@ Backend only (no docker): `cd backend && go run ./cmd/server` (reads `backend/.e
 
 ## 🐳 Production / images
 
-- **Prod stack** — single `app` image (SPA + API + SMTP) + postgres + valkey:
+- **Prod stack** — `caddy` (TLS) → `app` image (SPA + API + SMTP) + postgres + valkey:
   ```bash
   docker compose --env-file .env -f docker/prod/docker-compose.yaml up -d
   ```
   Override the image via `TEMPMAIL_APP_IMAGE` (default `ghcr.io/zengkuni/tempmail-xgmail:latest`).
+- **Caddy + Cloudflare proxy** — TLS terminator in front of the app (ACME DNS-01, auto-provisioned), Cloudflare orange-cloud fronts `80/443`; setup + required DNS/token: [`proxy-caddy-cloudflare.md`](docs/backend/proxy-caddy-cloudflare.md).
 - **CI/CD → GHCR** — [`.github/workflows/build-push.yml`](.github/workflows/build-push.yml) builds & pushes on `main` push, tags `v*`, or manual dispatch. Push tag `v1.0.0` → **auto-bump `v1.0.1`** (new tag on same commit, no loop) → image `ghcr.io/<owner>/tempmail-xgmail:{v1.0.1,latest,sha-<commit>}`; **multi-arch `amd64 + arm64`** — no docker.io credentials (`GITHUB_TOKEN`, `packages: write`).
 - 🔁 Runtime-configurable: brand / MX / domain / env are `TEMPMAIL_*` env — no rebuild per brand.
 
