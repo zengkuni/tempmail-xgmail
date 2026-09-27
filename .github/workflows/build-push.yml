@@ -54,7 +54,6 @@ jobs:
 
       - name: Compute image tags
         id: meta
-        run: |
           image=ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/tempmail-xgmail
           tags="$image:sha-${{ github.sha }}"
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
