@@ -60,15 +60,13 @@ function HomePage() {
         <PageBackdrop />
         <BlurFade offset={10} duration={0.5} className="relative">
           <div className="mx-auto flex max-w-[1320px] flex-col gap-8 px-4 pt-[72px] pb-16 min-[992px]:grid min-[992px]:grid-cols-[505px_727px] min-[992px]:justify-between min-[992px]:gap-x-14">
-            {/* Mobile: the tool is the product — address card first, then the
-                inbox; the marketing blocks (Hero, Byod) sit below so visitors
-                land directly on the working card. Desktop is pinned to the
-                original layout with explicit grid rows/columns — order would
-                otherwise reshuffle auto-placement in grid too. */}
-            <div className="order-1 min-[992px]:col-start-2 min-[992px]:row-start-1">
+            {/* Mobile: the tool is the product — address card + inbox first,
+                then marketing. Desktop: the right column is one stack
+                (address over inbox, 32px apart) spanning both grid rows, so
+                the left column's row heights can no longer wedge a gap
+                between the current card and the inbox. */}
+            <div className="order-1 flex flex-col gap-8 min-[992px]:col-start-2 min-[992px]:row-span-2">
               <AddressCard state={addressState} domains={domains} />
-            </div>
-            <div className="order-2 min-[992px]:col-start-2 min-[992px]:row-start-2">
               <InboxPanel
                 emails={inbox.emails}
                 refreshing={inbox.refreshing}
@@ -78,10 +76,10 @@ function HomePage() {
                 onDeleteEmail={(e) => void inbox.remove(e)}
               />
             </div>
-            <div className="order-3 min-[992px]:col-start-1 min-[992px]:row-start-1">
+            <div className="order-2 min-[992px]:col-start-1 min-[992px]:row-start-1">
               <Hero />
             </div>
-            <div className="order-4 min-[992px]:col-start-1 min-[992px]:row-start-2">
+            <div className="order-3 min-[992px]:col-start-1 min-[992px]:row-start-2">
               <ByodCard />
             </div>
           </div>
