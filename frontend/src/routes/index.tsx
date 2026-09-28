@@ -54,15 +54,21 @@ function HomePage() {
 
   return (
     <>
-      {/* Workspace: 2-col grid; DOM order hero → address → inbox → byod,
-          desktop places byod left / inbox right on row 2 */}
+      {/* Workspace: mobile = flex column, tool first (address → inbox) then
+          marketing; desktop = 2-col grid placing byod left / inbox right */}
       <section className="relative border-b">
         <PageBackdrop />
         <BlurFade offset={10} duration={0.5} className="relative">
-          <div className="mx-auto grid max-w-[1320px] grid-cols-1 gap-8 px-4 pt-[72px] pb-16 min-[992px]:grid-cols-[505px_727px] min-[992px]:justify-between min-[992px]:gap-x-14">
-            <Hero />
-            <AddressCard state={addressState} domains={domains} />
-            <div className="min-[992px]:col-start-2 min-[992px]:row-start-2">
+          <div className="mx-auto flex max-w-[1320px] flex-col gap-8 px-4 pt-[72px] pb-16 min-[992px]:grid min-[992px]:grid-cols-[505px_727px] min-[992px]:justify-between min-[992px]:gap-x-14">
+            {/* Mobile: the tool is the product — address card first, then the
+                inbox; the marketing blocks (Hero, Byod) sit below so visitors
+                land directly on the working card. Desktop is pinned to the
+                original layout with explicit grid rows/columns — order would
+                otherwise reshuffle auto-placement in grid too. */}
+            <div className="order-1 min-[992px]:col-start-2 min-[992px]:row-start-1">
+              <AddressCard state={addressState} domains={domains} />
+            </div>
+            <div className="order-2 min-[992px]:col-start-2 min-[992px]:row-start-2">
               <InboxPanel
                 emails={inbox.emails}
                 refreshing={inbox.refreshing}
@@ -72,7 +78,10 @@ function HomePage() {
                 onDeleteEmail={(e) => void inbox.remove(e)}
               />
             </div>
-            <div className="min-[992px]:col-start-1 min-[992px]:row-start-2">
+            <div className="order-3 min-[992px]:col-start-1 min-[992px]:row-start-1">
+              <Hero />
+            </div>
+            <div className="order-4 min-[992px]:col-start-1 min-[992px]:row-start-2">
               <ByodCard />
             </div>
           </div>
