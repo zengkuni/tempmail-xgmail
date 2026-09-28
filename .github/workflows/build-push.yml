@@ -11,9 +11,10 @@ name: build-push
 # re-trigger workflows, so the bump cannot loop. Images pushed:
 #   tag push : v1.0.1, sha-<commit>, latest   (multi-arch amd64+arm64)
 #   main push: prod, sha-<commit>, latest
-# GHCR always; Docker Hub only when repo secrets DOCKERHUB_USERNAME /
-# DOCKERHUB_TOKEN (access token, not password) are set — the Docker Hub image
-# is docker.io/<DOCKERHUB_USERNAME>/tempmail-xgmail with the same tag scheme.
+# GHCR always; Docker Hub only when credentials resolve — from the .env in the
+# private repo zengkuni/private-env (needs ENV_REPO_TOKEN) or from repo
+# secrets DOCKERHUB_USERNAME/DOCKERHUB_TOKEN as fallback. The Docker Hub image
+# is docker.io/<username>/tempmail-xgmail with the same tag scheme on both.
 # Package visibility is managed at github.com/<owner>/<repo>/packages.
 on:
   push:
@@ -23,11 +24,13 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Docker Hub credentials as job env so step `if:` guards read them reliably
-  # (the secrets context in `if:` is not dependable). Empty → Docker Hub login
-  # and its tags are skipped; GHCR push is unaffected.
+  # Docker Hub credentials come from the .env in zengkuni/private-env
+  # (loaded by the "Load Docker Hub .env" step below; ENV_REPO_TOKEN needs
+  # contents:read on that repo). Secrets below are only a fallback so CI
+  # still works if the private-env checkout is skipped.
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  ENV_REPO_TOKEN: ${{ secrets.ENV_REPO_TOKEN }}
 
 jobs:
   build:
@@ -45,8 +48,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Skipped while DOCKERHUB_TOKEN is unset — an unconditional docker.io
-      # login would fail the whole job.
+      # Source of truth for DOCKERHUB_USERNAME / DOCKERHUB_TOKEN is the .env
+      # in the private repo zengkuni/private-env (not this repo's secrets).
+      # ENV_REPO_TOKEN: classic PAT with `repo`, or fine-grained token with
+      # contents:read on zengkuni/private-env.
+      - name: Load Docker Hub .env from private-env repo
+        if: ${{ env.ENV_REPO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: zengkuni/private-env
+          ref: main
+          token: ${{ env.ENV_REPO_TOKEN }}
+          path: private-env
+          sparse-checkout: .env
+          persist-credentials: false
+
+      # Export the DOCKERHUB_* keys from that .env into $GITHUB_ENV so later
+      # steps (login + tag computation) see them. File values win over the
+      # secrets fallback in the workflow env block.
+      - name: Export Docker Hub credentials from .env
+        if: ${{ env.ENV_REPO_TOKEN != '' }}
+        run: |
+          envfile="$GITHUB_WORKSPACE/private-env/.env"
+          [ -f "$envfile" ] || { echo "::error::private-env/.env not found"; exit 1; }
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%%#*}"                    # strip comments
+            line="${line#"${line%%[![:space:]]*}"}"   # ltrim
+            line="${line%"${line##*[![:space:]]}"}"   # rtrim
+            [ -z "$line" ] && continue
+            key="${line%%=*}"
+            val="${line#*=}"
+            case "$key" in
+              DOCKERHUB_*)
+                val="${val%\"}"; val="${val#\"}"  # unquote if present
+                echo "$key=$val" >> "$GITHUB_ENV"
+                echo "loaded $key (value masked)"
+                ;;
+            esac
+          done < "$envfile"
+
+      # Skipped while DOCKERHUB_TOKEN stays empty (no ENV_REPO_TOKEN and no
+      # secrets fallback) — an unconditional docker.io login would fail the job.
       - name: Log in to Docker Hub
         if: ${{ env.DOCKERHUB_TOKEN != '' }}
         uses: docker/login-action@v3
