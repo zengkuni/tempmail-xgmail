@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { Check, Copy, RefreshCw, Search } from "lucide-react";
 import { useTable, type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useCopyFeedback } from "@/hooks/use-copy-feedback";
 import { Badge } from "@/components/reui/badge";
 import {
   Frame,
@@ -33,6 +34,27 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
+function DomainNameCell({ name }: { name: string }) {
+  const { copied, copy } = useCopyFeedback();
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+        onClick={(e) => {
+          e.stopPropagation();
+          copy(name);
+        }}
+        aria-label={copied ? "Copied" : "Copy domain"}
+      >
+        {copied ? <Check className="text-success" /> : <Copy />}
+      </Button>
+      <span className="truncate">{name}</span>
+    </div>
+  );
+}
+
 function MxBadge({ mxValid }: { mxValid: boolean | null }) {
   if (mxValid === null) {
     return (
@@ -58,7 +80,7 @@ const columns: ColumnDef<DataGridFeatures, DomainRow>[] = [
     header: ({ column }) => (
       <DataGridColumnHeader column={column} title="Domain" />
     ),
-    cell: ({ row }) => row.original.name,
+    cell: ({ row }) => <DomainNameCell name={row.original.name} />,
   },
   {
     accessorKey: "active",
@@ -143,7 +165,7 @@ export function DomainInventory({
             Domain Inventory
           </FrameTitle>
           <div className="flex w-full items-center gap-2 sm:w-auto">
-            <div className="relative min-w-0 flex-1 sm:w-48 sm:flex-none">
+            <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
@@ -151,7 +173,7 @@ export function DomainInventory({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search domain"
                 aria-label="Search domain"
-                className="w-full pl-8 sm:w-56"
+                className="w-full pl-8"
               />
             </div>
             <Button variant="secondary" onClick={onRefresh}>

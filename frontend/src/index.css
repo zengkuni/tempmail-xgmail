@@ -173,15 +173,6 @@
   }
 }
 
-/* Touch press feedback — desktop hover-only buttons feel dead under a finger */
-.press-scale {
-  transition: transform 120ms ease-out;
-}
-@media (hover: none) {
-  .press-scale:active {
-    transform: scale(0.97);
-  }
-}
 
 /* Mobile browser-surface polish: no iOS tap flash, no scroll chaining */
 @media (max-width: 991px) {

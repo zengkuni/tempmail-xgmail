@@ -156,7 +156,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
                   size="icon"
                   onClick={() => addressCopy.copy(state.address)}
                   aria-label={addressCopy.copied ? "Copied" : "Copy address"}
-                  className="size-11 bg-primary/10 text-primary hover:bg-primary/20 press-scale min-[576px]:size-8"
+                  className="size-11 bg-primary/10 text-primary hover:bg-primary/20 active:scale-[0.97] min-[576px]:size-8"
                 />
               }
             >
@@ -243,13 +243,13 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 min-[576px]:grid-cols-4">
-          <Button onClick={state.randomize} className="h-11 w-full press-scale min-[576px]:h-8" disabled={state.claiming}>
+          <Button onClick={state.randomize} className="h-11 w-full active:scale-[0.97] min-[576px]:h-8" disabled={state.claiming}>
             {state.claiming ? <Loader2 className="animate-spin" /> : <Dices />}
             Random
           </Button>
           <Button
             variant="secondary"
-            className="h-11 w-full bg-primary/10 text-primary hover:bg-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 press-scale min-[576px]:h-8"
+            className="h-11 w-full bg-primary/10 text-primary hover:bg-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 active:scale-[0.97] min-[576px]:h-8"
             disabled={!prefixDirty || !prefixValid}
             onClick={applyPrefix}
           >
@@ -258,7 +258,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           </Button>
           <Button
             variant="secondary"
-            className="h-11 w-full bg-success/10 text-success hover:bg-success/20 press-scale min-[576px]:h-8"
+            className="h-11 w-full bg-success/10 text-success hover:bg-success/20 active:scale-[0.97] min-[576px]:h-8"
             onClick={() =>
               linkCopy.copy(`${window.location.origin}/${state.address}`)
             }
@@ -268,7 +268,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           </Button>
           <Button
             variant="secondary"
-            className="h-11 w-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:text-violet-400 press-scale min-[576px]:h-8"
+            className="h-11 w-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:text-violet-400 active:scale-[0.97] min-[576px]:h-8"
             onClick={() => setIdentityOpen(true)}
           >
             <IdCard />

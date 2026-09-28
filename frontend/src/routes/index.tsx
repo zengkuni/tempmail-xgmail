@@ -60,13 +60,13 @@ function HomePage() {
         <PageBackdrop />
         <BlurFade offset={10} duration={0.5} className="relative">
     <div className="mx-auto flex max-w-[1320px] flex-col gap-6 px-4 pt-[64px] pb-12 min-[992px]:grid min-[992px]:grid-cols-[505px_727px] min-[992px]:justify-between min-[992px]:gap-x-14 min-[992px]:gap-y-8 min-[992px]:pt-[72px] min-[992px]:pb-16">
-            {/* Mobile: the tool is the product — address card + inbox first,
-                then marketing. Desktop: the right column is one stack
-                (address over inbox, 32px apart) spanning both grid rows, so
-                the left column's row heights can no longer wedge a gap
-                between the current card and the inbox; the inbox takes
+            {/* Mobile order: hero (Burner Inbox) first, then the address
+                card + inbox stack, then byod. Desktop: the right column is
+                one stack (address over inbox, 32px apart) spanning both grid
+                rows, so the left column's row heights can no longer wedge a
+                gap between the current card and the inbox; the inbox takes
                 leftover stack height so the right column stays flush. */}
-            <div className="order-1 flex flex-col gap-8 min-[992px]:col-start-2 min-[992px]:row-span-2">
+            <div className="order-2 flex flex-col gap-8 min-[992px]:col-start-2 min-[992px]:row-span-2">
               <AddressCard state={addressState} domains={domains} />
               <div className="min-[992px]:min-h-0 min-[992px]:flex-1">
                 <InboxPanel
@@ -79,7 +79,7 @@ function HomePage() {
                 />
               </div>
             </div>
-            <div className="order-2 min-[992px]:col-start-1 min-[992px]:row-start-1">
+            <div className="order-1 min-[992px]:col-start-1 min-[992px]:row-start-1">
               <Hero />
             </div>
             <div className="order-3 min-[992px]:col-start-1 min-[992px]:row-start-2">

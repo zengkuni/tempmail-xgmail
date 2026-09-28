@@ -191,7 +191,7 @@ export function InboxPanel({
             <Button
               variant="destructive"
               size="sm"
-              className="h-9 w-full press-scale min-[576px]:h-7"
+              className="h-9 w-full active:scale-[0.97] min-[576px]:h-7"
               onClick={onClear}
             >
               <Trash2 />
@@ -200,7 +200,7 @@ export function InboxPanel({
             <Button
               variant="secondary"
               size="sm"
-              className="h-9 w-full press-scale min-[576px]:h-7"
+              className="h-9 w-full active:scale-[0.97] min-[576px]:h-7"
               onClick={onRefresh}
             >
               <RefreshCw className={refreshing ? "animate-spin" : undefined} />

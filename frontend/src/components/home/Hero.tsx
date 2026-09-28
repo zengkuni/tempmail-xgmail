@@ -80,17 +80,17 @@ export function Hero() {
           your real inbox stays private.
         </p>
       </div>
-      <div className="grid w-full max-w-[620px] grid-cols-1 gap-3 min-[576px]:grid-cols-3">
+      <div className="grid w-full max-w-[620px] grid-cols-3 gap-2 min-[576px]:gap-3">
         {statCards.map(({ icon: Icon, value, label, tint }) => (
           <Card key={label}>
-            <CardContent className="flex min-h-[118px] flex-col gap-1.5 p-3">
-              <IconTile variant="soft" size="sm" className={tint} aria-hidden="true">
+            <CardContent className="flex flex-col items-center gap-0.5 p-2 text-center min-[576px]:min-h-[118px] min-[576px]:items-start min-[576px]:gap-1.5 min-[576px]:p-3 min-[576px]:text-left">
+              <IconTile variant="soft" size="sm" className={cn(tint, "hidden min-[576px]:inline-flex")} aria-hidden="true">
                 <Icon />
               </IconTile>
               <div className={cn("text-base font-extrabold leading-[24.8px]", tint)}>
                 {value}
               </div>
-              <div className="text-xs leading-[16.8px] text-muted-foreground">
+              <div className="text-[11px] leading-[14px] text-muted-foreground min-[576px]:text-xs min-[576px]:leading-[16.8px]">
                 {label}
               </div>
             </CardContent>
