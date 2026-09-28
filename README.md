@@ -36,7 +36,7 @@
 ```bash
 # 1. infra + backend in one shot (postgres + valkey + Go backend, source-mounted)
 task dev
-#    = docker compose --env-file .env -f docker/dev/docker-compose.yaml up -d --wait
+#    = docker compose --env-file .env.dev -f docker/dev/docker-compose.yaml up -d --wait
 
 # 2. frontend dev server on the host (no frontend container in dev compose)
 cd frontend && npm ci && npm run dev          # → http://localhost:5173
@@ -46,8 +46,8 @@ curl http://localhost:5001/health             # {"status":"ok"}
 open  http://localhost:5173                   # UI
 ```
 
-> `task dev` reads env from the repo-root `.env` (all keys prefixed `TEMPMAIL_`).
-> Plain `docker compose` without `--env-file .env` falls back to in-stack defaults (`redis://valkey:6379/0`, `postgres:5432`).
+> `task dev` reads env from `.env.dev` (all keys prefixed `TEMPMAIL_`).
+> Plain `docker compose` without `--env-file .env.dev` falls back to in-stack defaults (`redis://valkey:6379/0`, `postgres:5432`). Prod uses `.env.prod`.
 
 <details>
 <summary><b>🔑 Key env</b> (see <code>backend/.env.example</code>)</summary>
@@ -68,11 +68,11 @@ Backend only (no docker): `cd backend && go run ./cmd/server` (reads `backend/.e
 
 - **Prod stack** — `caddy` (TLS) → `app` image (SPA + API + SMTP) + postgres + valkey:
   ```bash
-  docker compose --env-file .env -f docker/prod/docker-compose.yaml up -d
+  docker compose --env-file .env.prod -f docker/prod/docker-compose.yaml up -d
   ```
-  Override the image via `TEMPMAIL_APP_IMAGE` (default `ghcr.io/zengkuni/tempmail-xgmail:latest`).
+  Override the image via `TEMPMAIL_APP_IMAGE` (default `docker.io/zengkuni/tempmail-xgmail:latest`).
 - **Caddy + Cloudflare proxy** — TLS terminator in front of the app (ACME DNS-01, auto-provisioned), Cloudflare orange-cloud fronts `80/443`; setup + required DNS/token: [`proxy-caddy-cloudflare.md`](docs/backend/proxy-caddy-cloudflare.md).
-- **CI/CD → GHCR** — [`.github/workflows/build-push.yml`](.github/workflows/build-push.yml) builds & pushes on `main` push, tags `v*`, or manual dispatch. Push tag `v1.0.0` → **auto-bump `v1.0.1`** (new tag on same commit, no loop) → image `ghcr.io/<owner>/tempmail-xgmail:{v1.0.1,latest,sha-<commit>}`; **multi-arch `amd64 + arm64`** — no docker.io credentials (`GITHUB_TOKEN`, `packages: write`).
+- **CI/CD → GHCR + Docker Hub** — [`.github/workflows/build-push.yml`](.github/workflows/build-push.yml) builds & pushes on `main` push, tags `v*`, or manual dispatch. Push tag `v1.0.0` → **auto-bump `v1.0.1`** (new tag on same commit, no loop) → images `ghcr.io/<owner>/tempmail-xgmail:{v1.0.1,latest,sha-<commit>}` and `docker.io/zengkuni/tempmail-xgmail:{...}`; **multi-arch `amd64 + arm64`**. GHCR needs no secrets (`GITHUB_TOKEN`); Docker Hub push runs only when repo secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (access token) are set. Switch deployments with `TEMPMAIL_APP_IMAGE` in `.env.prod` (e.g. `docker.io/zengkuni/tempmail-xgmail:latest`).
 - 🔁 Runtime-configurable: brand / MX / domain / env are `TEMPMAIL_*` env — no rebuild per brand.
 
 ---

@@ -4,9 +4,9 @@ version: '3'
 # auto-created on backend boot). Frontend dev server runs on the host:
 #   cd frontend && npm run dev
 #
-# Env vars come from the repo-root .env (--env-file .env) — compose otherwise
-# falls back to the in-stack services (TEMPMAIL_POSTGRES_URL / TEMPMAIL_REDIS_URL
-# default to postgres:5432 / redis://valkey:6379/0).
+# Env vars come from .env.dev (--env-file .env.dev). Prod uses .env.prod.
+# Compose otherwise falls back to in-stack defaults (TEMPMAIL_POSTGRES_URL /
+# TEMPMAIL_REDIS_URL → postgres:5432 / redis://valkey:6379/0).
 #
 # Usage:
 #   task dev        # start the dev stack (detached)
@@ -19,4 +19,4 @@ tasks:
   dev:
     desc: Start the dev stack (backend + postgres + valkey)
     cmds:
-      - docker compose --env-file .env -f {{.COMPOSE_FILE}} up -d --wait
+      - docker compose --env-file .env.dev -f {{.COMPOSE_FILE}} up -d --wait

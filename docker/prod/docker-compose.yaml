@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # tempmail — PRODUCTION. Single image (frontend + backend + SMTP in one).
 #
-#   docker compose --env-file .env -f docker/prod/docker-compose.yaml up -d
-#   (env keys live in the repo-root .env; compose defaults otherwise)
+#   docker compose --env-file .env.prod -f docker/prod/docker-compose.yaml up -d
+#   (env keys live in .env.prod; compose defaults otherwise)
 #
 # The `app` container serves the SPA, REST API, Socket.IO realtime, and the
 # SMTP receiver. `caddy` terminates TLS (Let's Encrypt via Cloudflare DNS-01)
@@ -10,7 +10,7 @@
 # Brand/MX are runtime env (see app.environment) so one image can be rebranded
 # without a rebuild. SMTP (:25) bypasses Caddy/Cloudflare — MX points straight
 # at the origin IP (DNS-only record email.<domain>), never a proxied record.
-# WARNING: all env keys are TEMPMAIL_-prefixed (root .env). Images built
+# WARNING: all env keys are TEMPMAIL_-prefixed (.env.prod). Images built
 # before the rename read the old names — after building + pushing the prod
 # image manually (docker build -f docker/prod/Dockerfile + docker push),
 # run `docker compose -f docker/prod/docker-compose.yaml pull && \
@@ -31,11 +31,15 @@ services:
       - "80:80" # HTTP (ACME HTTP-01 + redirect)
       - "443:443" # HTTPS
     environment:
-      # Site identity + ACME (resolved by Caddy itself from .env placeholders).
-      TEMPMAIL_SITE_DOMAIN: ${TEMPMAIL_SITE_DOMAIN:-localhost}
-      TEMPMAIL_ACME_EMAIL: ${TEMPMAIL_ACME_EMAIL:-admin@example.com}
-      # Cloudflare API token with Zone→DNS→Edit on the site's zone.
-      TEMPMAIL_CLOUDFLARE_API_TOKEN: ${TEMPMAIL_CLOUDFLARE_API_TOKEN:?set in .env}
+      # Site identity + ACME — dibaca Caddy dari environment container ini
+      # (CADDY_* bukan TEMPMAIL_*; lihat docker/prod/Caddyfile). Compose
+      # mengisinya dari .env.prod (--env-file .env.prod).
+      # Domain publik: Caddy terminate TLS, CF proxy (orange) di depan.
+      CADDY_SITE_DOMAIN: ${CADDY_SITE_DOMAIN:-localhost}
+      # Kontak ACME (notifikasi renew/insiden Let's Encrypt).
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-admin@example.com}
+      # Cloudflare API token — Zone→DNS→Edit pada zone domain di atas.
+      CADDY_CLOUDFLARE_API_TOKEN: ${CADDY_CLOUDFLARE_API_TOKEN:?set in .env.prod}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data # certificates (ACME DNS-01, persistent)
@@ -48,11 +52,10 @@ services:
     # build:
     #   context: .
     #   dockerfile: docker/prod/Dockerfile
-    image: ${TEMPMAIL_APP_IMAGE:-ghcr.io/zengkuni/tempmail-xgmail:latest}
+    image: ${TEMPMAIL_APP_IMAGE:-docker.io/zengkuni/tempmail-xgmail:latest}
     container_name: tempmail-app
     restart: unless-stopped
     # 8080 is intentionally NOT published: Caddy is the only public HTTP
-    # entry (avoids bypassing TLS/Cloudflare). Caddy reaches app:8080 in-stack.
     ports:
       - "25:2525" # SMTP intake (host :25 → app; CF proxy cannot carry SMTP)
       - "2525:2525" # SMTP intake (direct, optional)

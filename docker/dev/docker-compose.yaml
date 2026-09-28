@@ -2,13 +2,13 @@
 # tempmail — DEVELOPMENT. Go backend + Postgres + Valkey only.
 # Frontend dev server runs on the host: cd frontend && npm run dev (:5173).
 #
-#   docker compose --env-file .env -f docker/dev/docker-compose.yaml up -d
+#   docker compose --env-file .env.dev -f docker/dev/docker-compose.yaml up -d
 #
 #   Backend API + SMTP:     http://localhost:5001  /  :2525
 #   Frontend (manual vite): http://localhost:5173
 #
 # NOTE: compose reads env vars from ./docker/dev/.env by default; pass
-# --env-file .env (repo root) to use the project .env. TEMPMAIL_POSTGRES_URL
+# --env-file .env.dev (repo root) for the project dev keys. TEMPMAIL_POSTGRES_URL
 # / TEMPMAIL_REDIS_URL fall back to the in-stack services when unset.
 # This dev stack NEVER builds or pulls from GHCR: the backend runs from
 # source (golang image + volume mount), infra are plain postgres/valkey
