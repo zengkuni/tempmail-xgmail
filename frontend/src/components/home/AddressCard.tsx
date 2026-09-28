@@ -58,7 +58,7 @@ function RecentChip({
   onRemove: (address: string) => void;
 }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/25 bg-primary/5 py-1 pl-3 pr-1.5 text-xs">
+    <span className="inline-flex max-w-full shrink-0 snap-start items-center gap-1 rounded-full border border-primary/25 bg-primary/5 py-1 pl-3 pr-1.5 text-xs">
       <button
         type="button"
         onClick={() => onSelect(address)}
@@ -128,7 +128,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
 
   return (
     <Frame>
-      <FramePanel className="flex flex-col gap-5 p-5 min-[576px]:p-8">
+      <FramePanel className="flex flex-col gap-4 p-4 min-[576px]:gap-5 min-[576px]:p-5 min-[992px]:p-8">
         <FrameHeader className="flex-row items-start justify-between gap-3 border-b border-border pb-4">
           <div className="flex min-w-0 items-center gap-3">
             <IconTile
@@ -140,10 +140,10 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
               <Mail />
             </IconTile>
             <div className="flex min-w-0 flex-col gap-1">
-              <p className="text-sm font-extrabold text-muted-foreground">
+              <p className="text-[11px] font-extrabold tracking-[0.08em] text-muted-foreground">
                 CURRENT ADDRESS
               </p>
-              <h2 className="max-w-full break-all text-[22px] font-bold leading-[26px]">
+              <h2 className="max-w-full break-all text-[19px] font-bold leading-[23px] min-[576px]:text-[22px] min-[576px]:leading-[26px]">
                 {state.address}
               </h2>
             </div>
@@ -156,7 +156,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
                   size="icon"
                   onClick={() => addressCopy.copy(state.address)}
                   aria-label={addressCopy.copied ? "Copied" : "Copy address"}
-                  className="bg-primary/10 text-primary hover:bg-primary/20"
+                  className="size-11 bg-primary/10 text-primary hover:bg-primary/20 press-scale min-[576px]:size-8"
                 />
               }
             >
@@ -176,6 +176,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
             <Input
               id="address-prefix"
               value={prefixInput}
+              className="h-11 min-[576px]:h-8"
               placeholder="Enter prefix"
               onChange={(event) =>
                 setPrefixInput(event.target.value.toLowerCase())
@@ -195,7 +196,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
                 state.setDomain(value === AUTO_DOMAIN ? null : value)
               }
             >
-              <SelectTrigger id="address-domain" className="w-full">
+              <SelectTrigger id="address-domain" className="h-11 w-full min-[576px]:h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent
@@ -242,13 +243,13 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 min-[576px]:grid-cols-4">
-          <Button onClick={state.randomize} className="w-full" disabled={state.claiming}>
+          <Button onClick={state.randomize} className="h-11 w-full press-scale min-[576px]:h-8" disabled={state.claiming}>
             {state.claiming ? <Loader2 className="animate-spin" /> : <Dices />}
             Random
           </Button>
           <Button
             variant="secondary"
-            className="w-full bg-primary/10 text-primary hover:bg-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+            className="h-11 w-full bg-primary/10 text-primary hover:bg-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 press-scale min-[576px]:h-8"
             disabled={!prefixDirty || !prefixValid}
             onClick={applyPrefix}
           >
@@ -257,7 +258,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           </Button>
           <Button
             variant="secondary"
-            className="w-full bg-success/10 text-success hover:bg-success/20"
+            className="h-11 w-full bg-success/10 text-success hover:bg-success/20 press-scale min-[576px]:h-8"
             onClick={() =>
               linkCopy.copy(`${window.location.origin}/${state.address}`)
             }
@@ -267,7 +268,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           </Button>
           <Button
             variant="secondary"
-            className="w-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:text-violet-400"
+            className="h-11 w-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:text-violet-400 press-scale min-[576px]:h-8"
             onClick={() => setIdentityOpen(true)}
           >
             <IdCard />
@@ -281,7 +282,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
           className="flex flex-col gap-2"
         >
           <div className="flex items-center gap-2">
-            <p className="text-sm font-extrabold text-muted-foreground">
+            <p className="text-[11px] font-extrabold tracking-[0.08em] text-muted-foreground">
               RECENT ADDRESSES
             </p>
             <Badge radius="full">{state.recents.length}</Badge>
@@ -304,7 +305,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
             <div
               role="region"
               aria-label="Recent addresses"
-              className="flex flex-wrap gap-1.5"
+              className="flex snap-x gap-2 overflow-x-auto pb-0.5 min-[576px]:flex-wrap min-[576px]:overflow-visible"
             >
               {state.recents.map((address) => (
                 <RecentChip

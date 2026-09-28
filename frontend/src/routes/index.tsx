@@ -59,22 +59,25 @@ function HomePage() {
       <section className="relative border-b">
         <PageBackdrop />
         <BlurFade offset={10} duration={0.5} className="relative">
-          <div className="mx-auto flex max-w-[1320px] flex-col gap-8 px-4 pt-[72px] pb-16 min-[992px]:grid min-[992px]:grid-cols-[505px_727px] min-[992px]:justify-between min-[992px]:gap-x-14">
+    <div className="mx-auto flex max-w-[1320px] flex-col gap-6 px-4 pt-[64px] pb-12 min-[992px]:grid min-[992px]:grid-cols-[505px_727px] min-[992px]:justify-between min-[992px]:gap-x-14 min-[992px]:gap-y-8 min-[992px]:pt-[72px] min-[992px]:pb-16">
             {/* Mobile: the tool is the product — address card + inbox first,
                 then marketing. Desktop: the right column is one stack
                 (address over inbox, 32px apart) spanning both grid rows, so
                 the left column's row heights can no longer wedge a gap
-                between the current card and the inbox. */}
+                between the current card and the inbox; the inbox takes
+                leftover stack height so the right column stays flush. */}
             <div className="order-1 flex flex-col gap-8 min-[992px]:col-start-2 min-[992px]:row-span-2">
               <AddressCard state={addressState} domains={domains} />
-              <InboxPanel
-                emails={inbox.emails}
-                refreshing={inbox.refreshing}
-                onRefresh={inbox.refresh}
-                onClear={inbox.clear}
-                onOpenEmail={inbox.openEmail}
-                onDeleteEmail={(e) => void inbox.remove(e)}
-              />
+              <div className="min-[992px]:min-h-0 min-[992px]:flex-1">
+                <InboxPanel
+                  emails={inbox.emails}
+                  refreshing={inbox.refreshing}
+                  onRefresh={inbox.refresh}
+                  onClear={inbox.clear}
+                  onOpenEmail={inbox.openEmail}
+                  onDeleteEmail={(e) => void inbox.remove(e)}
+                />
+              </div>
             </div>
             <div className="order-2 min-[992px]:col-start-1 min-[992px]:row-start-1">
               <Hero />
@@ -86,25 +89,25 @@ function HomePage() {
         </BlurFade>
       </section>
       <div className="border-b bg-[linear-gradient(180deg,color-mix(in_oklab,var(--primary)_6%,transparent),color-mix(in_oklab,var(--primary)_3%,transparent))]">
-        <div className="mx-auto max-w-[1320px] px-4 py-16">
+        <div className="mx-auto max-w-[1320px] px-4 py-10 min-[992px]:py-16">
           <BlurFade inView offset={8} duration={0.45}>
             <ArticleSection />
           </BlurFade>
         </div>
       </div>
-      <div className="mx-auto max-w-[1320px] px-4 py-16">
+      <div className="mx-auto max-w-[1320px] px-4 py-10 min-[992px]:py-16">
         <BlurFade inView offset={8} duration={0.45}>
           <WhyChoose />
         </BlurFade>
       </div>
       <div className="border-y bg-[linear-gradient(180deg,color-mix(in_oklab,var(--primary)_6%,transparent),color-mix(in_oklab,var(--primary)_3%,transparent))]">
-        <div className="mx-auto max-w-[1320px] px-4 py-16">
+        <div className="mx-auto max-w-[1320px] px-4 py-10 min-[992px]:py-16">
           <BlurFade inView offset={8} duration={0.45}>
             <CompareTable />
           </BlurFade>
         </div>
       </div>
-      <div className="mx-auto max-w-[1320px] px-4 py-16">
+      <div className="mx-auto max-w-[1320px] px-4 py-10 min-[992px]:py-16">
         <BlurFade inView offset={8} duration={0.45}>
           <FaqSection />
         </BlurFade>

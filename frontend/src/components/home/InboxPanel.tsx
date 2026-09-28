@@ -81,7 +81,7 @@ function EmailRow({
     <div className="flex items-stretch">
       <button
         type="button"
-        className="block min-w-0 flex-1 cursor-pointer rounded-l-md px-2 py-3 text-left hover:bg-muted"
+        className="block min-w-0 flex-1 cursor-pointer rounded-l-md px-3 py-3.5 text-left hover:bg-muted active:bg-muted min-[576px]:px-2"
         onClick={() => onOpen(email)}
       >
         <div className="flex items-baseline justify-between gap-2">
@@ -107,7 +107,7 @@ function EmailRow({
         size="icon"
         aria-label={`Delete email from ${email.senderName}`}
         title="Delete this email"
-        className="my-auto mr-1 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+        className="my-auto mr-1 h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive min-[576px]:h-8 min-[576px]:w-8"
         onClick={() => onDelete(email)}
       >
         <Trash2 />
@@ -191,7 +191,7 @@ export function InboxPanel({
             <Button
               variant="destructive"
               size="sm"
-              className="w-full"
+              className="h-9 w-full press-scale min-[576px]:h-7"
               onClick={onClear}
             >
               <Trash2 />
@@ -200,7 +200,7 @@ export function InboxPanel({
             <Button
               variant="secondary"
               size="sm"
-              className="w-full"
+              className="h-9 w-full press-scale min-[576px]:h-7"
               onClick={onRefresh}
             >
               <RefreshCw className={refreshing ? "animate-spin" : undefined} />
@@ -216,7 +216,7 @@ export function InboxPanel({
             <Skeleton className="h-16 w-full" />
           </div>
         ) : emails.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-10 text-center">
+          <div className="flex flex-col items-center gap-2 p-8 text-center min-[576px]:p-10">
             <IconTile variant="soft" size="lg" className="text-muted-foreground" aria-hidden="true">
               <MailOpen />
             </IconTile>

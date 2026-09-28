@@ -173,6 +173,29 @@
   }
 }
 
+/* Touch press feedback — desktop hover-only buttons feel dead under a finger */
+.press-scale {
+  transition: transform 120ms ease-out;
+}
+@media (hover: none) {
+  .press-scale:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Mobile browser-surface polish: no iOS tap flash, no scroll chaining */
+@media (max-width: 991px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Text selection tinted from the brand primary, not the UA default */
+::selection {
+  background: color-mix(in oklab, var(--primary) 25%, transparent);
+}
+
 /* Brand utilities */
 .text-brand-gradient {
   background: linear-gradient(90deg, var(--brand-grad-1) 0%, var(--brand-grad-2) 52%, var(--brand-grad-3) 100%);
