@@ -44,11 +44,10 @@ function brandName(host: string): string {
 }
 
 function senderDomain(from: string): string {
-  // Host mentah (lowercase); root domain dihitung server via PSL —
-  // heuristik label di klien rusak untuk co.id/com.vn dan
-  // "noreply@account.lazada.com.vn" → "com.vn".
+  // Root domain via PSL (co.id/com.vn benar) — URL ikon selalu root:
+  // account.tokopedia.com → tokopedia.com.
   const at = senderEmail(from).lastIndexOf("@");
-  return at > 0 ? senderEmail(from).slice(at + 1).toLowerCase() : "";
+  return at > 0 ? (pslGet(senderEmail(from).slice(at + 1).toLowerCase()) ?? "") : "";
 }
 
 function extractCode(text: string): string | undefined {
