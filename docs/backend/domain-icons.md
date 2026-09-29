@@ -1,4 +1,4 @@
-# Sender-domain icons via BIMI + selfh.st SVG fallback
+# Sender-domain icons via BIMI + faviconapi fallback
 
 ## Overview
 
@@ -7,22 +7,35 @@ this order and cached in Postgres:
 
 1. **BIMI** DNS record (`default._bimi.<domain>` TXT → `l=` logo URL → logo
    bytes).
-2. **Favicon fallback** — SVG from the **selfh.st** catalog via faviconapi.com:
-   `https://faviconapi.com/selfhst/0/svg/<name>` (returns `image/svg+xml`).
-   The catalog is keyed by slug without TLD (`jellyfin`, not `jellyfin.org`),
-   so the sender domain is queried with its last label stripped.
+2. **Favicon fallback** — the **v1 JSON route** of faviconapi.com:
+   `GET https://faviconapi.com/api/v1/favicon?url=<domain>` →
+   `{"url": "https://faviconapi.com/cdn/favicons/<domain>.png", ...}` on a hit
+   (icon bytes are a second fetch of that CDN URL) or `422
+   {"error": "No favicon could be found for this URL."}` on a miss.
 3. **UI letter fallback** — first initial of the sender name.
 
 Every icon is downloaded at most once: each resolution (positive or negative)
 is persisted to `domain_icons` and all later requests are DB reads. Flow is
 lazy: nothing is fetched on SMTP intake.
 
-Provider notes: selfh.st is a self-hosted-software icon catalog, so the
-fallback only hits for sender domains whose service name exists in it (e.g.
-`jellyfin.org` → `jellyfin`); everything else gets a 404/502 and falls back
-to the letter. Other faviconapi routes exist (PNG root route `/<domain>`,
-Brandfetch `/brandfetch/0/svg/<domain>`) but the icon source is selfh.st SVG
-per the product decision.
+### Root-domain normalization
+
+`:domain` is normalized to the **registrable root** (`golang.org/x/net/
+publicsuffix`, `EffectiveTLDPlusOne`) before any lookup or cache write, so
+`account.tokopedia.com` and `tokopedia.com` share one row. The frontend does
+the same with the `psl` package when building the icon URL.
+
+### Title branding (frontend)
+
+`use-inbox.ts` derives the displayed sender title: a generic local-part /
+display name (`noreply`, `no-reply`, `info`, `notifications`, …) is replaced
+by the brand parsed from the root domain — `tokopedia.com` → `Tokopedia`
+(SLD, first letter capitalized). The sender **address** itself is never
+rewritten; the dialog header reads `Tokopedia <noreply@account.tokopedia.com>`.
+
+Provider notes: the v1 route resolves real public sites, so any registered
+sender domain is a candidate; unknown/unreachable domains answer `422` →
+negative row → 404 → UI letter.
 
 ## Table
 
@@ -42,7 +55,9 @@ per the product decision.
 the SPA — no key in the bundle).
 
 1. Validate/normalize `:domain` (lowercase, strict hostname regex). Invalid →
-   `400` via the standard `fail()` envelope.
+   `400` via the standard `fail()` envelope. Then normalize to the
+   registrable root via `publicsuffix.EffectiveTLDPlusOne` (fallback: the
+   input itself) — all lookups and cache rows use the root.
 2. DB read.
    - Positive row → serve bytes with the stored `content_type`.
    - Negative row (`data IS NULL`) younger than 24 h → `404` (empty body).
@@ -62,14 +77,15 @@ the SPA — no key in the bundle).
      block) → favicon fallback (BIMI logo exists but is unusable).
    - **Transient** failure (timeout, connection error) → `404`, nothing
      persisted, BIMI remains the preferred source for the next attempt.
-6. Favicon fallback → `fetchLogo` on the fixed `faviconAPIBase + name` URL
-   (single public host; name = domain with the last label stripped). No SSRF
-   expansion beyond that host, all `fetchLogo` guards still apply.
-   - Success → persist positive row → serve (`image/svg+xml`).
-   - Definitive failure (404, 502 = not in the selfh.st catalog, disallowed
-     type) → persist negative row → `404` → UI letter fallback.
-   - Transient failure (timeout, connection error, 429 rate-limit) → `404`,
-     nothing persisted.
+6. Favicon fallback (`fetchFaviconIconURL`, single public host — no SSRF
+   expansion beyond it): GET `faviconAPIBase + domain` (the root domain,
+   TLD included), read a small JSON body (64 KiB cap), take `url`.
+   - Hit → `fetchLogo` on the CDN URL → success persists a positive row
+     (typically `image/png`, ~128 px source).
+   - `422` / `{"error": ...}` / empty url → definitive miss → negative row
+     → `404` → UI letter fallback.
+   - Transient (timeout, connection error, DNS failure, 429, 5xx, or guard
+     block via `errBlockedTarget`) → `404`, nothing persisted.
 7. `fetchLogo` details: GET with `User-Agent: tempmail-xgmail/1.0`,
    `cfg.DomainIconTimeout`; requires 200; body capped at
    `cfg.DomainIconMaxBytes` via `io.LimitReader` (oversize = error, no
@@ -88,9 +104,11 @@ the SPA — no key in the bundle).
   host-refused / oversize / disallowed type; guard rejection — blocked IP at
   dial or redirect, non-https redirect hop, or >3-hop chain
   (`errBlockedTarget`, matched via `errors.Is` through the `*url.Error`
-  wrapper of `client.Do`); favicon 404/502 (not in catalog).
+  wrapper of `client.Do`); favicon v1 miss (`422`, JSON error/empty url,
+  unreadable body).
 - **Transient** → nothing persisted, retried on the next request: BIMI
-  resolver failure; logo/favicon timeout or connection error; favicon 429.
+  resolver failure; logo/favicon timeout or connection error; favicon 429
+  or 5xx.
 
 ### SSRF guards (both fetch paths)
 
@@ -145,14 +163,19 @@ at a 390 px viewport).
 
 - BIMI positives: `tiktok.com` → `200 image/svg+xml` 1643 B; 2nd request
   served from DB (3 ms).
-- selfh.st SVG fallback (no BIMI record): `jellyfin.org` → `200
-  image/svg+xml` 944 B (name stripped to `jellyfin`); 2nd request from DB
-  (3.1 ms). `github.com` → 200 via the same route (822 B).
-- Out-of-catalog domain → `404`, negative row with `data IS NULL`; re-request
-  inside the 24 h TTL returns `404` without any upstream call.
+- faviconapi v1 fallback (no BIMI record): `github.com` → `200 image/png`
+  3415 B; `account.tokopedia.com` → `200 image/png` 14722 B, cached under
+  the root key `tokopedia.com`, 2nd request from DB (19 ms).
+- Negative cache: unknown domain (`nx-domain-xyz-9f8a7b.dev`) → `404`,
+  negative row with `data IS NULL`; re-request inside the 24 h TTL returns
+  `404` without any upstream call.
+- Title branding: sender `noreply@account.tokopedia.com` → row title
+  "Tokopedia" and dialog header "Tokopedia <noreply@account.tokopedia.com>"
+  (address untouched); generic-local senders `noreply@github.com` / `noreply@
+  tiktok.com` → "Github" / "Tiktok"; non-generic local parts (`deals@ebay.
+  com`) stay as-is.
 - 200 responses carry `X-Content-Type-Options: nosniff` and the sandbox CSP.
 - Browser at 1280×900: hero `[16,128,505,442]`, byod `[16,602,505,473]`,
   stack `[577,128,727,947]` — byte-identical to the frozen baseline; rows
-  87 px, icon images loaded, 10 px tile radius, violet gradient computed
-  background. At 390×844: Identity dialog and inbox dialog are both 348 px
-  wide; no horizontal overflow.
+  87 px, icon images loaded, 10 px tile radius. At 390×844: Identity dialog
+  and inbox dialog are both 348 px wide; no horizontal overflow.

@@ -59,3 +59,6 @@ tmp/
 # Agent/harness artifacts (not project code)
 .agents/
 skills-lock.json
+
+# Local verification scratch (seed SQL, probe scripts, logs)
+.tmpverify/

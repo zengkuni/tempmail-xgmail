@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { get as pslGet, parse as pslParse } from "psl";
 import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
 import { BASE_URL, clearEmails, deleteEmail, getEmail, listEmails, type EmailSummary } from "@/lib/api";
@@ -16,10 +17,12 @@ function relativeTime(iso: string): string {
 }
 
 function senderName(from: string): string {
-  // "Display Name <addr@x>" → "Display Name"; bare address → local part.
+  // Display name asli ("Ahmad <a@gmail.com>") → tampilkan apa adanya.
   const m = from.match(/^\s*"?([^"<]+?)"?\s*</);
   if (m) return m[1].trim();
-  return from.split("@")[0] || from;
+  // Tanpa display name: brand dari root domain via PSL — local-part mesin
+  // (deals, noreply, ...) bukan identitas yang informatif.
+  return brandName(senderDomain(from)) || from;
 }
 
 function senderEmail(from: string): string {
@@ -27,8 +30,23 @@ function senderEmail(from: string): string {
   return m ? m[1] : from.trim();
 }
 
+// Registrable root + nama brand memakai Public Suffix List (psl) supaya
+// lengkap (co.id, com.au, ...): account.tokopedia.com → tokopedia.com →
+// "Tokopedia"; fallback ke host apa adanya kalau psl tidak mengenali.
+
+function brandName(host: string): string {
+  // psl.get memberi registrable root; psl.parse memisahkan sld+tld.
+  const root = pslGet(host) ?? host;
+  const parsed = pslParse(root);
+  const sld = parsed && "sld" in parsed ? parsed.sld : root.split(".")[0];
+  if (!sld) return host;
+  return sld.charAt(0).toUpperCase() + sld.slice(1);
+}
+
 function senderDomain(from: string): string {
-  // "Name <user@sub.example.com>" → "example.com" (after last @, lowercased).
+  // Host mentah (lowercase); root domain dihitung server via PSL —
+  // heuristik label di klien rusak untuk co.id/com.vn dan
+  // "noreply@account.lazada.com.vn" → "com.vn".
   const at = senderEmail(from).lastIndexOf("@");
   return at > 0 ? senderEmail(from).slice(at + 1).toLowerCase() : "";
 }

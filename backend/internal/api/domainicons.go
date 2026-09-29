@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/publicsuffix"
 	"tempmail/internal/config"
 	"tempmail/internal/dnsx"
 	"tempmail/internal/models"
@@ -40,10 +42,11 @@ var allowedLogoTypes = map[string]bool{
 	"image/jpg":     true,
 }
 
-// faviconAPIBase — sumber ikon fallback: SVG dari katalog selfh.st (route
-// /selfhst/0/svg/<name> → image/svg+xml; app di luar katalog → 404 JSON).
-// Host tunggal & publik: seluruh SSRF guard fetchLogo tetap berlaku.
-const faviconAPIBase = "https://faviconapi.com/selfhst/0/svg/"
+// faviconAPIBase — sumber ikon fallback: route JSON v1 faviconapi.com
+// (GET ?url=<domain> → {"url": ".../cdn/favicons/<domain>.png"} atau
+// 422 {"error": "..."} untuk domain tak dikenal). Host tunggal & publik;
+// seluruh SSRF guard fetchLogo berlaku untuk ikon CDN-nya.
+const faviconAPIBase = "https://faviconapi.com/api/v1/favicon?url="
 
 // DomainIcon serves the brand icon of an email sender's domain.
 // Resolution order:
@@ -61,6 +64,12 @@ func (h *handlers) DomainIcon(c *gin.Context) {
 	if !domainRe.MatchString(domain) {
 		fail(c, 400, "invalid domain")
 		return
+	}
+	// Subdomain (noreply@account.tokopedia.com → account.tokopedia.com)
+	// dinormalkan ke registrable root (tokopedia.com): satu cache row, BIMI
+	// dan favicon lookup selalu memakai domain dasar brand.
+	if root, err := publicsuffix.EffectiveTLDPlusOne(domain); err == nil {
+		domain = root
 	}
 	reqCtx := c.Request.Context()
 
@@ -125,26 +134,96 @@ func (h *handlers) resolveDomainIcon(ctx context.Context, domain string) *models
 	return h.faviconOrNegative(ctx, domain)
 }
 
-// faviconOrNegative — fallback ikon dari katalog SVG selfh.st. Nama katalog
-// berbentuk slug tanpa TLD ("jellyfin", bukan "jellyfin.org"), jadi sender
-// domain dipotong label terakhirnya untuk lookup. Sukses → ikon positif;
-// definitif gagal (404/502 = di luar katalog) → entri negatif; transient
-// (timeout/koneksi/429) → nil (tidak dicache).
+// faviconOrNegative — fallback ikon via route JSON v1 faviconapi.com.
+// Lookup JSON mengembalikan URL CDN PNG; ikon diunduh dari URL itu dengan
+// guard yang sama. Sukses → ikon positif; definitif gagal (422 = di luar
+// katalog, URL CDN diblokir guard, logo oversize/disallowed type) → entri
+// negatif; transient (timeout/koneksi/429/5xx) → nil (tidak dicache).
 func (h *handlers) faviconOrNegative(ctx context.Context, domain string) *models.DomainIcon {
-	name := domain
-	if i := strings.LastIndexByte(domain, '.'); i > 0 {
-		name = domain[:i]
+	iconURL, err := fetchFaviconIconURL(ctx, h.cfg, domain)
+	if iconURL == "" {
+		if !errors.Is(err, errDefinitive) {
+			log.Printf("domain-icons: favicon %s: %v", domain, err)
+			return nil
+		}
+		log.Printf("domain-icons: no icon for %s (favicon: not found)", domain)
+		return &models.DomainIcon{Domain: domain, FetchedAt: time.Now().UTC()}
 	}
-	data, ct, definitive, err := fetchLogo(ctx, h.cfg, faviconAPIBase+name)
-	if err == nil {
+	data, ct, definitive, ferr := fetchLogo(ctx, h.cfg, iconURL)
+	if ferr == nil {
 		return &models.DomainIcon{Domain: domain, ContentType: ct, Data: data, FetchedAt: time.Now().UTC()}
 	}
 	if !definitive {
-		log.Printf("domain-icons: favicon %s: %v", domain, err)
+		log.Printf("domain-icons: favicon %s: %v", domain, ferr)
 		return nil
 	}
-	log.Printf("domain-icons: no icon for %s (favicon: %v)", domain, err)
+	log.Printf("domain-icons: no icon for %s (favicon: %v)", domain, ferr)
 	return &models.DomainIcon{Domain: domain, FetchedAt: time.Now().UTC()}
+}
+
+// faviconV1Resp — envelope JSON route v1 faviconapi.com: sukses berisi url
+// CDN PNG (mis. https://faviconapi.com/cdn/favicons/gitea.com.png); domain
+// tak dikenal membalas 422 dengan {"error": "..."} dan url kosong.
+type faviconV1Resp struct {
+	URL   string `json:"url"`
+	Error string `json:"error"`
+}
+
+// errDefinitive — kegagalan lookup favicon yang BUKAN kondisi sementara
+// (domain tak dikenal / badan tak terbaca): aman negative-cache.
+var errDefinitive = errors.New("definitive")
+
+// fetchFaviconIconURL memanggil route JSON faviconapi.com v1 dan
+// mengembalikan URL ikon CDN. URL kosong + err is errDefinitive = domain
+// tidak punya favicon (422, negative-cache); URL kosong + err lain =
+// transient (timeout/koneksi/429/5xx/badan tak terbaca) — coba lagi render
+// berikutnya, TIDAK di-negative-cache.
+func fetchFaviconIconURL(ctx context.Context, cfg *config.Config, domain string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, cfg.DomainIconTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, faviconAPIBase+domain, nil)
+	if err != nil {
+		return "", fmt.Errorf("favicon api request %s: %w", domain, err)
+	}
+	req.Header.Set("User-Agent", "tempmail-xgmail/1.0")
+	client := *logoClient // salinan agar Timeout per-konfigurasi aman
+	client.Timeout = cfg.DomainIconTimeout
+	resp, err := client.Do(req)
+	if err != nil {
+		// Penolakan guard (host faviconapi.com resolve ke IP internal)
+		// = definitif; timeout/koneksi/DNS gagal = transien.
+		if errors.Is(err, errBlockedTarget) {
+			return "", fmt.Errorf("favicon api %s: %w", domain, errDefinitive)
+		}
+		return "", fmt.Errorf("favicon api %s: %w", domain, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	if err != nil {
+		// Upstream putus di tengah respons: gangguan sesaat, bukan
+		// jawaban "tidak ada" → transien.
+		return "", fmt.Errorf("favicon api %s: %w", domain, err)
+	}
+	if resp.StatusCode == http.StatusUnprocessableEntity {
+		// 422 = jawaban resmi "favicon tidak ada" untuk domain ini.
+		return "", fmt.Errorf("favicon api %s: not found: %w", domain, errDefinitive)
+	}
+	if resp.StatusCode != http.StatusOK {
+		// Termasuk 429/5xx (dan 4xx lain): gangguan/rate-limit upstream —
+		// transien, jangan negative-cache.
+		return "", fmt.Errorf("favicon api %s: status %d", domain, resp.StatusCode)
+	}
+	var r faviconV1Resp
+	if err := json.Unmarshal(body, &r); err != nil {
+		// 200 dengan badan non-JSON = upstream rusak/ganti format: transien.
+		return "", fmt.Errorf("favicon api %s: unreadable body: %w", domain, err)
+	}
+	if r.URL == "" {
+		// 200 dengan payload error (bukan 422) tetap transien: hanya
+		// favicon_not_found yang layak di-negative-cache.
+		return "", fmt.Errorf("favicon api %s: no url (%s)", domain, r.Error)
+	}
+	return r.URL, nil
 }
 
 // errBlockedTarget — penolakan guard SSRF (dialer atau redirect ke IP
