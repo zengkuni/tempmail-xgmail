@@ -209,11 +209,14 @@ func (p *PG) BumpDomainUsage(ctx context.Context, name string) {
 	_, _ = p.DB.ExecContext(ctx, `UPDATE domains SET usage_count = usage_count + 1 WHERE name = $1`, name)
 }
 
-// EmailListItem is one row of an inbox listing (no bodies).
+// EmailListItem is one row of an inbox listing (subject + body for OTP
+// extraction; bodies are capped, see the query).
 type EmailListItem struct {
 	ID            string    `db:"id"`
 	SenderAddress string    `db:"sender_address"`
 	Subject       string    `db:"subject"`
+	BodyText      string    `db:"body_text"`
+	BodyHTML      string    `db:"body_html"`
 	CreatedAt     time.Time `db:"created_at"`
 }
 
@@ -221,7 +224,7 @@ type EmailListItem struct {
 func (p *PG) ListEmailsByInbox(ctx context.Context, inboxAddress string) ([]EmailListItem, error) {
 	items := []EmailListItem{}
 	err := p.DB.SelectContext(ctx, &items,
-		`SELECT id, sender ->> 'address' AS sender_address, subject, created_at
+		`SELECT id, sender ->> 'address' AS sender_address, subject, body_text, body_html, created_at
 		 FROM emails WHERE inbox_address = $1 ORDER BY created_at DESC LIMIT 50`, inboxAddress)
 	return items, err
 }

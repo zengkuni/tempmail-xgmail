@@ -67,6 +67,7 @@ type EmailPayload struct {
 	From       string `json:"from"`
 	To         string `json:"to"`
 	Subject    string `json:"subject"`
+	Code       string `json:"code"`
 	ReceivedAt string `json:"received_at"`
 }
 

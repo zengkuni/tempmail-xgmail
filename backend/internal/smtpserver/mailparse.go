@@ -11,6 +11,7 @@ import (
 	"tempmail/internal/config"
 	"tempmail/internal/db"
 	"tempmail/internal/models"
+	"tempmail/internal/otp"
 	"tempmail/internal/realtime"
 
 	"github.com/jhillyerd/enmime"
@@ -124,6 +125,7 @@ func Save(ctx context.Context, m *db.PG, cfg *config.Config, hub *realtime.Hub, 
 			ID:         id,
 			From:       from,
 			Subject:    subject,
+			Code:       otp.Code(subject, text, body),
 			ReceivedAt: isoTime(now),
 		})
 	}

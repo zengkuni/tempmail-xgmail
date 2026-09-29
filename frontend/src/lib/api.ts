@@ -48,6 +48,8 @@ export interface EmailSummary {
   to?: string;
   subject: string;
   received_at: string;
+  /** Verification code detected server-side from subject+body+html. */
+  code?: string;
 }
 
 export interface EmailDetail {
@@ -55,6 +57,7 @@ export interface EmailDetail {
   from: string;
   to: string;
   subject: string;
+  code?: string;
   text: string;
   html: string;
   headers: Record<string, string>;

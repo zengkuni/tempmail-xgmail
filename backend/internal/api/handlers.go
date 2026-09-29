@@ -12,6 +12,7 @@ import (
 
 	"tempmail/internal/config"
 	"tempmail/internal/db"
+	"tempmail/internal/otp"
 	"tempmail/internal/realtime"
 
 	"github.com/bolone-sengkuni/fakerindo"
@@ -129,6 +130,7 @@ func (h *handlers) ListEmails(c *gin.Context) {
 			"from":        item.SenderAddress,
 			"subject":     item.Subject,
 			"received_at": iso(item.CreatedAt),
+			"code":        otp.Code(item.Subject, item.BodyText, item.BodyHTML),
 		})
 	}
 	ok(c, gin.H{"email": email, "count": len(emails), "emails": emails})
@@ -153,6 +155,7 @@ func (h *handlers) GetEmail(c *gin.Context) {
 		"from":        e.Sender.Address,
 		"to":          e.InboxAddress,
 		"subject":     e.Subject,
+		"code":        otp.Code(e.Subject, e.BodyText, e.BodyHTML),
 		"received_at": iso(e.CreatedAt),
 		"text":        e.BodyText,
 		"html":        e.BodyHTML,

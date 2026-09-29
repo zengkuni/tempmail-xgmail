@@ -61,7 +61,7 @@ function toMock(e: EmailSummary): MockEmail {
     preview: "",
     html: "",
     receivedAt: relativeTime(e.received_at),
-    code: extractOTPFromEmail({ subject: e.subject }) ?? undefined,
+    code: e.code?.trim() || extractOTPFromEmail({ subject: e.subject }) || undefined,
   };
 }
 
@@ -120,7 +120,7 @@ export function useInbox(address: string) {
         ...email,
         preview: d.text.trim().slice(0, 160),
         html: d.html || `<pre>${d.text}</pre>`,
-        code: extractOTPFromEmail({ subject: d.subject, text: d.text, html: d.html }) ?? undefined,
+        code: d.code?.trim() || extractOTPFromEmail({ subject: d.subject, text: d.text, html: d.html }) || undefined,
       };
       setEmails((es) => es.map((e) => (e.id === email.id ? { ...e, preview: full.preview, code: full.code } : e)));
       return full;
