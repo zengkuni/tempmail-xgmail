@@ -19,12 +19,9 @@ Candidates are `\d{4,8}` or dashed/spaced `\d{3,4}[-\s]\d{3,4}` (separators
 stripped: `123-456` → `123456`). Each candidate's ±80-char context decides:
 
 - date/time patterns (`12/05`, `10:30`, `gmt`) → reject;
-- strong positives (`otp`, `verification code`, …) beat negatives;
-- otherwise a negative keyword in context (`invoice`, `tracking`, `total`,
-  `road`, `terms`, …) rejects the candidate;
-- leftovers confirmed by `code: 123456`, `123456 is your Instagram
-  confirmation code`, or a positive keyword → accept.
-
+- strong positives (`otp`, `verification code`, `kode verifikasi`, …) beat negatives;
+- otherwise a negative keyword in context (`invoice`, `tracking`, `total`, `road`, `terms`, …) rejects the candidate;
+- leftovers confirmed by `code: 123456`, `kode verifikasi` adjacency, `123456 is your Instagram confirmation code`, `123456 adalah kode verifikasi`, or a positive keyword → accept.
 ## Wiring (use-inbox.ts)
 
 - List rows: `code = extractOTPFromEmail({ subject })` — the list API returns
@@ -43,3 +40,5 @@ stripped: `123-456` → `123456`). Each candidate's ±80-char context decides:
 - False positives: `noreply@shopee.co.id` "Your order has shipped" + body
   "Invoice #100250 total $42.99. Order date 12/05/2026. … 1601 Willow Rd." →
   no chip (invoice/date/address context filtered).
+- Indonesian subject: "198949 adalah kode verifikasi Anda" → chip `198949` on first render (keyword gate accepts `kode`/`verifikasi`).
+- Indonesian body-only: "Aktivasi akun Tokopedia kamu" + body "…masukkan kode verifikasi… 208451" → chip `208451` after opening the row.

@@ -40,6 +40,9 @@ function buildOptions(opts: OtpOptions): Required<OtpOptions> {
       "is your", "use code", "enter", "sent", "expires", "reset", "login",
       "security", "confirmation code", "facebook code", "instagram code",
       "security code", "login code",
+      // Indonesian senders (Tokopedia, Shopee, Gojek, ...).
+      "kode", "verifikasi", "aktivasi", "keamanan", "kode verifikasi",
+      "kode otp", "kode aktivasi", "kode keamanan", "masukkan kode",
     ],
     negativeKeywords: opts.negativeKeywords ?? [
       "order", "invoice", "tracking", "tracking number", "amount", "total",
@@ -64,7 +67,6 @@ function extractFromText(val: string, opts: Required<OtpOptions>): string | null
     const rawOtp = match[1];
     const cleanOtp = rawOtp.replace(/[-\s]/g, "");
     if (cleanOtp.length < 4 || cleanOtp.length > 8) continue;
-
     const idx = match.index;
     const start = Math.max(0, idx - opts.neighborhood);
     const end = Math.min(val.length, idx + rawOtp.length + opts.neighborhood);
@@ -78,10 +80,12 @@ function extractFromText(val: string, opts: Required<OtpOptions>): string | null
     const strongPositives = [
       "otp", "verification code", "security code", "login code",
       "confirmation code", "one-time", "one time", "auth code",
+      // Indonesian: "kode verifikasi", "kode OTP", "kode aktivasi".
+      "kode verifikasi", "kode otp", "kode aktivasi", "kode keamanan",
     ];
     const isStrong =
       strongPositives.some((k) => ctxLower.includes(k)) ||
-      /code[:\s]*$/.test(ctxLower.slice(0, idx - start).slice(-12));
+      /[ck]ode[:\s]*$/.test(ctxLower.slice(0, idx - start).slice(-12));
 
     if (!isStrong) {
       const negPattern = new RegExp(
@@ -93,13 +97,13 @@ function extractFromText(val: string, opts: Required<OtpOptions>): string | null
 
     // "code: 123456" right before the digits — strongest signal.
     const before = ctxLower.slice(0, idx - start);
-    if (/code[:\s]*$/.test(before.slice(-12))) return cleanOtp;
+    if (/[ck]ode[:\s]*$/.test(before.slice(-12))) return cleanOtp;
 
     if (opts.positiveKeywords.some((k) => ctxLower.includes(k))) return cleanOtp;
 
-    // "123456 is your Instagram confirmation code" style sentences.
+    // "<digits> is your Instagram confirmation code" / "<digits> adalah kode".
     const fallbackRegex =
-      /(\d{4,8}|\d{3,4}[-\s]\d{3,4})[^\S\r\n]{0,8}(is|is your|is the|is a)\s+(([a-z0-9]+\s+){0,3})?(code|otp|pin|confirmation code)/i;
+      /(\d{4,8}|\d{3,4}[-\s]\d{3,4})[^\S\r\n]{0,8}(is|is your|is the|is a|adalah|merupakan)\s+(([a-z0-9]+\s+){0,3})?(code|otp|pin|kode|confirmation code|verifikasi)/i;
 
     if (
       /code[:\s]*(\d{4,8}|\d{3,4}[-\s]\d{3,4})/i.test(ctx) ||
@@ -134,14 +138,14 @@ export function extractOTPFromEmail(
   // 1. Subject — keyword gate first so "Order shipped" never leaks ids.
   if (emailData.subject) {
     if (
-      /\b(otp|pin|verification|code|one[-\s]*time|verify)\b/i.test(
+      /\b(otp|pin|verification|code|one[-\s]*time|verify|kode|verifikasi|aktivasi)\b/i.test(
         emailData.subject,
       )
     ) {
       const r = extractFromText(emailData.subject, opts);
       if (r) return r;
     } else {
-      const quick = emailData.subject.match(/code[:\s]*(\d{4,8})/i);
+      const quick = emailData.subject.match(/[ck]ode[:\s]*(\d{4,8})/i);
       if (quick) return quick[1];
     }
   }
