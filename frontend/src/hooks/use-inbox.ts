@@ -3,6 +3,7 @@ import { get as pslGet, parse as pslParse } from "psl";
 import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
 import { BASE_URL, clearEmails, deleteEmail, getEmail, listEmails, type EmailSummary } from "@/lib/api";
+import { extractOTPFromEmail } from "@/lib/otp-detector";
 import type { MockEmail } from "@/components/home/types";
 
 function relativeTime(iso: string): string {
@@ -50,11 +51,6 @@ function senderDomain(from: string): string {
   return at > 0 ? (pslGet(senderEmail(from).slice(at + 1).toLowerCase()) ?? "") : "";
 }
 
-function extractCode(text: string): string | undefined {
-  const m = text.match(/\b(\d{4,8})\b/);
-  return m?.[1];
-}
-
 function toMock(e: EmailSummary): MockEmail {
   return {
     id: e.id,
@@ -65,7 +61,7 @@ function toMock(e: EmailSummary): MockEmail {
     preview: "",
     html: "",
     receivedAt: relativeTime(e.received_at),
-    code: extractCode(e.subject),
+    code: extractOTPFromEmail({ subject: e.subject }) ?? undefined,
   };
 }
 
@@ -124,7 +120,7 @@ export function useInbox(address: string) {
         ...email,
         preview: d.text.trim().slice(0, 160),
         html: d.html || `<pre>${d.text}</pre>`,
-        code: extractCode(d.text) ?? extractCode(d.subject),
+        code: extractOTPFromEmail({ subject: d.subject, text: d.text, html: d.html }) ?? undefined,
       };
       setEmails((es) => es.map((e) => (e.id === email.id ? { ...e, preview: full.preview, code: full.code } : e)));
       return full;
