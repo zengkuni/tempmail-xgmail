@@ -81,7 +81,9 @@ async function fetchAll(): Promise<{
       peakLabel: peak.label,
       peakValue: peak.value,
       activeHours,
-      avgPerHour: activeHours > 0 ? Math.round(stats.emails_24h / 24) : 0,
+      // Satu desimal: rata-rata per jam bisa < 1 (mis. 3/24 = 0.1) dan
+      // pembulatan integer akan menampilkan "0" walau ada email.
+      avgPerHour: Math.round((stats.emails_24h / 24) * 10) / 10,
     },
     topLists: [
       {

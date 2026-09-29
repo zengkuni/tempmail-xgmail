@@ -103,6 +103,12 @@ func (p *PG) EnsureSchema(ctx context.Context) error {
 			is_active    BOOLEAN NOT NULL DEFAULT TRUE,
 			created_at   TIMESTAMPTZ NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS domain_icons (
+			domain       TEXT PRIMARY KEY,
+			content_type TEXT NOT NULL DEFAULT '',
+			data         BYTEA,
+			fetched_at   TIMESTAMPTZ NOT NULL
+		)`,
 	}
 	for _, s := range stmts {
 		if _, err := p.DB.ExecContext(ctx, s); err != nil {
@@ -313,7 +319,10 @@ func (p *PG) HourlyCounts(ctx context.Context, start, end time.Time) (map[time.T
 		if err := rows.StructScan(&hc); err != nil {
 			continue
 		}
-		counts[hc.Hour] = hc.Count
+		// Key harus UTC murni (loc=nil): driver bisa mengembalikan waktu
+		// bertimezone lokal, dan map time.Time membandingkan pointer loc —
+		// key tak identik membuat lookup handler selalu miss (zero-fill).
+		counts[hc.Hour.UTC()] = hc.Count
 	}
 	return counts, rows.Err()
 }
@@ -551,6 +560,29 @@ func (p *PG) SaveEmailTx(ctx context.Context, e *models.Email, inboxExists bool)
 		}
 	}
 	return tx.Commit()
+}
+
+// GetDomainIcon returns the cached icon row for a sender domain (Data may be
+// nil for a negative entry); sql.ErrNoRows when never fetched.
+func (p *PG) GetDomainIcon(ctx context.Context, domain string) (*models.DomainIcon, error) {
+	var icon models.DomainIcon
+	err := p.DB.GetContext(ctx, &icon,
+		`SELECT domain, content_type, data, fetched_at FROM domain_icons WHERE domain = $1`, domain)
+	if err != nil {
+		return nil, err
+	}
+	return &icon, nil
+}
+
+// SaveDomainIcon upserts the cached icon; empty Data stores a negative entry
+// that callers retry after negativeIconCacheTTL.
+func (p *PG) SaveDomainIcon(ctx context.Context, icon *models.DomainIcon) error {
+	_, err := p.DB.ExecContext(ctx,
+		`INSERT INTO domain_icons (domain, content_type, data, fetched_at) VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (domain) DO UPDATE SET
+		   content_type = EXCLUDED.content_type, data = EXCLUDED.data, fetched_at = EXCLUDED.fetched_at`,
+		icon.Domain, icon.ContentType, icon.Data, icon.FetchedAt)
+	return err
 }
 
 // ExpiredInboxAddresses returns the addresses of expired inboxes (for purge).

@@ -27,6 +27,12 @@ function senderEmail(from: string): string {
   return m ? m[1] : from.trim();
 }
 
+function senderDomain(from: string): string {
+  // "Name <user@sub.example.com>" → "example.com" (after last @, lowercased).
+  const at = senderEmail(from).lastIndexOf("@");
+  return at > 0 ? senderEmail(from).slice(at + 1).toLowerCase() : "";
+}
+
 function extractCode(text: string): string | undefined {
   const m = text.match(/\b(\d{4,8})\b/);
   return m?.[1];
@@ -37,6 +43,7 @@ function toMock(e: EmailSummary): MockEmail {
     id: e.id,
     senderName: senderName(e.from),
     senderEmail: senderEmail(e.from),
+    senderDomain: senderDomain(e.from),
     subject: e.subject || "(no subject)",
     preview: "",
     html: "",

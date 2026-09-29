@@ -170,7 +170,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
 
         <div className="flex flex-col gap-4 min-[576px]:flex-row min-[576px]:items-end">
           <div className="w-full min-[576px]:max-w-[calc(50%_-_8px)] min-[576px]:flex-1">
-            <Label htmlFor="address-prefix" className="mb-0.5">
+            <Label htmlFor="address-prefix" className="mb-2">
               Custom prefix
             </Label>
             <Input
@@ -187,7 +187,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
             />
           </div>
           <div className="relative w-full min-[576px]:max-w-[calc(50%_-_8px)] min-[576px]:flex-1">
-            <Label htmlFor="address-domain" className="mb-0.5">
+            <Label htmlFor="address-domain" className="mb-2">
               Domains
             </Label>
             <Select
@@ -321,7 +321,7 @@ export function AddressCard({ state, domains }: { state: AddressState; domains: 
       </FramePanel>
 
       <Dialog open={identityOpen} onOpenChange={setIdentityOpen}>
-        <DialogContent className="max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Identity</DialogTitle>
           </DialogHeader>

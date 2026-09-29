@@ -53,6 +53,9 @@ type Config struct {
 	DNSResolversURL string
 	// Interval refresh otomatis pool resolver dari TEMPMAIL_DNS_RESOLVERS_URL.
 	DNSResolversRefresh time.Duration
+	// Timeout HTTP fetch logo brand (BIMI l= URL) dan batas ukuran respons.
+	DomainIconTimeout  time.Duration
+	DomainIconMaxBytes int64
 }
 
 // Load reads backend/.env (if present) then the process env, applying defaults.
@@ -91,6 +94,8 @@ func Load() *Config {
 		DNSLookupSample:     getInt("TEMPMAIL_DNS_LOOKUP_SAMPLE", 8),
 		DNSResolversURL:     get("TEMPMAIL_DNS_RESOLVERS_URL", "https://raw.githubusercontent.com/proabiral/Fresh-Resolvers/refs/heads/master/resolvers.txt"),
 		DNSResolversRefresh: getDuration("TEMPMAIL_DNS_RESOLVERS_REFRESH", 24*time.Hour),
+		DomainIconTimeout:   getDuration("TEMPMAIL_DOMAIN_ICON_TIMEOUT", 5*time.Second),
+		DomainIconMaxBytes:  int64(getInt("TEMPMAIL_DOMAIN_ICON_MAX_BYTES", 131072)),
 	}
 }
 

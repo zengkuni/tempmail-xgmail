@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -209,13 +210,15 @@ func (h *handlers) Statistics24h(c *gin.Context) {
 	start := end.Add(-24 * time.Hour)
 
 	counts := map[time.Time]int64{}
-	if m, err := h.m.HourlyCounts(c.Request.Context(), start, end); err == nil {
+	if m, err := h.m.HourlyCounts(c.Request.Context(), start, end); err != nil {
+		log.Printf("statistics: hourly counts: %v", err)
+	} else {
 		counts = m
 	}
 
 	// Zero-fill exactly 24 hourly buckets, oldest → newest.
 	hours := make([]gin.H, 0, 24)
-	bucket := start.Truncate(time.Hour)
+	bucket := start.Truncate(time.Hour).UTC()
 	for range 24 {
 		hours = append(hours, gin.H{"hour": iso(bucket), "count": counts[bucket]})
 		bucket = bucket.Add(time.Hour)

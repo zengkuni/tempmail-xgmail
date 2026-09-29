@@ -77,3 +77,12 @@ type APIKey struct {
 	IsActive   bool       `db:"is_active" json:"is_active"`
 	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
 }
+
+// DomainIcon — cached brand logo for a sender domain (BIMI l= URL), keyed by
+// domain. Data nil = negative entry: lookup ran, domain publishes no logo.
+type DomainIcon struct {
+	Domain      string    `db:"domain" json:"domain"`
+	ContentType string    `db:"content_type" json:"content_type"`
+	Data        []byte    `db:"data" json:"-"`
+	FetchedAt   time.Time `db:"fetched_at" json:"fetched_at"`
+}

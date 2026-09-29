@@ -11,6 +11,8 @@ import {
 } from "@/components/reui/frame";
 import { Badge } from "@/components/reui/badge";
 import { IconTile } from "@/components/reui/icon-tile";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BASE_URL } from "@/lib/api";
 import type { MockEmail } from "./types";
 import {
   Dialog,
@@ -66,6 +68,35 @@ function CodeChip({ code }: { code: string }) {
   );
 }
 
+// Sender brand icon (BIMI logo, cached server-side): rounded-square tile,
+// white surface in light mode and a neutral dark surface in dark mode, thin
+// border so it stays defined on the panel in both themes. Keeps the brand
+// mark whole (object-contain). Falls back to the sender's first initial.
+function SenderIcon({ name, domain }: { name: string; domain: string }) {
+  const initial = (name.trim()[0] || "?").toUpperCase();
+
+  if (!domain) {
+    return (
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-black/5 bg-white text-sm font-bold text-violet-600 dark:border-white/10 dark:bg-neutral-900 dark:text-violet-300">
+        {initial}
+      </span>
+    );
+  }
+
+  return (
+    <Avatar className="rounded-lg border border-black/5 bg-white after:rounded-lg dark:border-white/10 dark:bg-neutral-900">
+      <AvatarImage
+        src={`${BASE_URL}/api/domain-icons/${encodeURIComponent(domain)}`}
+        alt=""
+        className="rounded-lg object-contain p-1"
+      />
+      <AvatarFallback className="rounded-lg text-violet-600 dark:text-violet-300">
+        {initial}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 function EmailRow({
   email,
   onOpen,
@@ -85,8 +116,11 @@ function EmailRow({
         onClick={() => onOpen(email)}
       >
         <div className="flex items-baseline justify-between gap-2">
-          <span className="min-w-0 truncate text-sm font-bold">
-            {email.senderName}
+          <span className="flex min-w-0 items-center gap-2">
+            <SenderIcon name={email.senderName} domain={email.senderDomain} />
+            <span className="min-w-0 truncate text-sm font-bold">
+              {email.senderName}
+            </span>
           </span>
           <span className="shrink-0 text-xs text-muted-foreground">
             {email.receivedAt}
@@ -256,14 +290,10 @@ export function InboxPanel({
             <>
               <DialogHeader className="shrink-0 min-w-0 overflow-hidden">
                 <div className="flex items-center gap-3">
-                  <IconTile
-                    variant="soft"
-                    size="sm"
-                    className="shrink-0 text-primary"
-                    aria-hidden="true"
-                  >
-                    <MailOpen />
-                  </IconTile>
+                  <SenderIcon
+                    name={selected.senderName}
+                    domain={selected.senderDomain}
+                  />
                   <div className="min-w-0 flex-1">
                     <DialogTitle className="truncate text-base">
                       {selected.subject}

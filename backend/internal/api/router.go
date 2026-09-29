@@ -54,6 +54,8 @@ func New(cfg *config.Config, m *db.PG, rdb *redis.Client, hub *realtime.Hub) *gi
 		api.GET("/statistics/top-senders", h.TopSenders)
 
 		api.GET("/domains", h.ListDomains)
+
+		api.GET("/domain-icons/:domain", h.DomainIcon)
 		api.GET("/domains/status", h.DomainStatus)
 		api.POST("/domains/register", RateLimitStrict(rdb, cfg), h.RegisterDomain)
 		api.POST("/domains/verify", RateLimitStrict(rdb, cfg), h.VerifyDomain)

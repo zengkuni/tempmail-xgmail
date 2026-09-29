@@ -2,6 +2,7 @@ export interface MockEmail {
   id: string;
   senderName: string;
   senderEmail: string;
+  senderDomain: string;
   subject: string;
   preview: string;
   html: string; // full message body as email-style HTML for the detail dialog
